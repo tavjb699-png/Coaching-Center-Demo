@@ -4069,51 +4069,49 @@ ${currentBrand.name}
     });
   </script>
   <!-- ========================================================================= -->
-<!-- ========================================================================= -->
-<!-- 🔥 FIREBASE CLOUD CONNECTED: প্রশ্ন ও লেকচার নোটস (PDF) সম্পূর্ণ ইঞ্জিন -->
+<!-- 🚀 FIXED ADD-ON: "ফাইল আপলোড ও প্রকাশ করুন" Button Fix & PDF Engine -->
 <!-- ========================================================================= -->
 
-<!-- Firebase SDKs (v9 Compat Mode) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<div id="materials-addon-wrapper" style="display:none;"></div>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyAzYbhmcYOwIOKudXTdoDn10a_sIfXepjQ",
-    authDomain: "coaching-center-demo.firebaseapp.com",
-    projectId: "coaching-center-demo",
-    storageBucket: "coaching-center-demo.appspot.com",
-    messagingSenderId: "1032292921153",
-    appId: "1:1032292921153:web:68e2f7c86c413ea14cfbc0",
-    measurementId: "G-FYYL0R539C"
-  };
-
   const DB_MATERIALS_ADDON = 'coaching_materials_v5';
-  let fbApp = null, fbDb = null, fbStorage = null;
-  let isFirebaseReady = false;
-  let addonMaterialsList = [];
-  let currentUploadRawFile = null;
 
-  // Firebase Initialize
-  try {
-    if (!firebase.apps.length) {
-      fbApp = firebase.initializeApp(firebaseConfig);
-    } else {
-      fbApp = firebase.app();
+  const defaultSamplePDF = "data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagozIDAgb2JqCjw8Ci9UeXBlIC9QYWdlCi9QYXJlbnQgMiAwIFIKL01lZGlhQm94IFswIDAgNTk1IDg0Ml0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggNzgKPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxMDAgNzAwIFRECihNZWRoYWJpa2FzaCBDb2FjaGluZyBDZW50ZXIgLSBEZW1vIEV4YW0gUHVlc3Rpb24gUERGKVRqCkVUCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDUKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAwNjggMDAwMDAgbiAKMDAwMDAwMDEyNSAwMDAwMCBuIAowMDAwMDAwMjE5IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNQovUm9vdCAxIDAgUgo+PgpzdGFydHhyZWYKMzQ4CiUlRU9G";
+
+  const defaultMaterials = [
+    {
+      id: 'mat_default_1',
+      courseId: 'c1',
+      type: 'Question',
+      title: 'এসএসসি বিজ্ঞান ১ম সাময়িক পরীক্ষা প্রশ্নপত্র',
+      fileName: 'ssc_science_exam_question.pdf',
+      fileType: 'application/pdf',
+      fileData: defaultSamplePDF,
+      date: '০২ অক্টোবর, ২০২৬',
+      allowAccess: true
     }
-    fbDb = firebase.firestore();
-    fbStorage = firebase.storage();
-    isFirebaseReady = true;
-    console.log("✅ Firebase Connected Successfully!");
-  } catch (err) {
-    console.warn("⚠️ Firebase Initialization Failed. Falling back to local storage.", err);
-    isFirebaseReady = false;
-  }
+  ];
 
-  // UI Components Injection
+  let addonMaterialsList = (function() {
+    try {
+      const data = localStorage.getItem(DB_MATERIALS_ADDON);
+      if (!data) return defaultMaterials;
+      let parsed = JSON.parse(data);
+      return parsed.map(m => {
+        if (!m.fileData) m.fileData = defaultSamplePDF;
+        if (m.allowAccess === undefined) m.allowAccess = true;
+        return m;
+      });
+    } catch (e) {
+      return defaultMaterials;
+    }
+  })();
+
+  let tempSelectedMaterialFile = { data: '', name: '', type: '' };
+
   function initAddonUI() {
-    // ১. স্টুডেন্ট পোর্টাল হেডার ট্যাব
+    // 1. Student Portal Header Tab
     const stuTabsContainer = document.querySelector('#student-portal-modal .overflow-x-auto');
     if (stuTabsContainer && !document.getElementById('btn-sp-materials')) {
       const btn = document.createElement('button');
@@ -4125,7 +4123,7 @@ ${currentBrand.name}
       stuTabsContainer.appendChild(btn);
     }
 
-    // ২. স্টুডেন্ট পোর্টাল মূল প্যানেল
+    // 2. Student Portal Tab View
     const stuMainContainer = document.querySelector('#student-portal-modal main .max-w-7xl');
     if (stuMainContainer && !document.getElementById('sp-tab-materials')) {
       const studentPane = document.createElement('div');
@@ -4137,10 +4135,10 @@ ${currentBrand.name}
             <h5 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
               <i class="fa-solid fa-file-shield text-emerald-600"></i> আমার কোর্সের প্রশ্ন ও লেকচার শিট
             </h5>
-            <p class="text-xs text-slate-500 mt-0.5">অনুমোদিত ফাইল সরাসরি দেখুন ও ডাউনলোড করুন</p>
+            <p class="text-xs text-slate-500 mt-0.5">কর্তৃপক্ষের অনুমোদনের ভিত্তিতে আপনি এখান থেকে ফাইল দেখতে, ডাউনলোড বা প্রিন্ট করতে পারবেন</p>
           </div>
           <span class="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-            ক্লাউড সিঙ্কড
+            অনুমোদিত স্টাডি ফাইল
           </span>
         </div>
         <div id="student-materials-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
@@ -4148,7 +4146,7 @@ ${currentBrand.name}
       stuMainContainer.appendChild(studentPane);
     }
 
-    // ৩. অ্যাডমিন সাইডবার বাটন
+    // 3. Admin Sidebar Tab Button
     const adminAside = document.querySelector('#admin-dashboard-modal aside');
     if (adminAside && !document.getElementById('btn-tab-materials')) {
       const btn = document.createElement('button');
@@ -4156,11 +4154,11 @@ ${currentBrand.name}
       btn.type = 'button';
       btn.onclick = () => window.switchTab('tab-materials');
       btn.className = 'dash-tab-btn w-full text-left px-3.5 py-3 rounded-2xl text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 transition flex items-center gap-3 shrink-0';
-      btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-rose-500 text-sm"></i> <span>প্রশ্ন ও নোটস (Firebase)</span>`;
+      btn.innerHTML = `<i class="fa-solid fa-file-pdf text-rose-500 text-sm"></i> <span>প্রশ্ন ও নোটস (PDF)</span>`;
       adminAside.appendChild(btn);
     }
 
-    // ৪. অ্যাডমিন মূল প্যানেল
+    // 4. Admin Main Dashboard Panel
     const adminMainContainer = document.querySelector('#admin-dashboard-modal main .max-w-7xl');
     if (adminMainContainer && !document.getElementById('tab-materials')) {
       const adminPane = document.createElement('div');
@@ -4171,16 +4169,13 @@ ${currentBrand.name}
           <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
             <div>
               <h5 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-fire text-amber-500"></i> ফায়ারবেসে পরীক্ষার প্রশ্ন ও নোটস (PDF) আপলোড
+                <i class="fa-solid fa-cloud-arrow-up text-rose-500"></i> ব্যাচভিত্তিক পরীক্ষার প্রশ্ন ও নোটস (PDF) আপলোড
               </h5>
-              <p class="text-xs text-slate-500 mt-0.5">ফাইল ক্লাউডে আপলোড হবে এবং শিক্ষার্থীদের পোর্টালে সরাসরি যুক্ত হবে</p>
+              <p class="text-xs text-slate-500 mt-0.5">পিডিএফ ফাইল বা ছবি আপলোড করুন এবং শিক্ষার্থীদের পারমিশন নির্ধারণ করুন</p>
             </div>
-            <span id="fb-status-badge" class="text-[10px] font-bold px-2.5 py-1 rounded-full ${isFirebaseReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
-              ${isFirebaseReady ? '🟢 ফায়ারবেস কানেক্টেড' : '🟡 লোকাল মোড সক্রিয়'}
-            </span>
           </div>
 
-          <form id="material-upload-form" class="space-y-4" onsubmit="window.handleMaterialFirebaseSubmit(event)">
+          <form id="material-upload-form" class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1">কোর্স / ব্যাচ নির্বাচন করুন *</label>
@@ -4196,7 +4191,7 @@ ${currentBrand.name}
               </div>
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1">শিরোনাম / বিষয়ের নাম *</label>
-                <input type="text" id="mat-title" required placeholder="উদা: পদার্থ ১ম পত্র অধ্যায়-৩ প্রশ্ন" class="w-full text-xs p-2.5 rounded-xl border border-slate-300">
+                <input type="text" id="mat-title" required placeholder="উদা: পদার্থবিজ্ঞান ১ম পত্র অধ্যায়-৩ প্রশ্ন" class="w-full text-xs p-2.5 rounded-xl border border-slate-300">
               </div>
             </div>
 
@@ -4216,8 +4211,8 @@ ${currentBrand.name}
             </div>
 
             <div class="flex justify-end">
-              <button type="submit" id="btn-submit-material" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-2 cursor-pointer">
-                <i class="fa-solid fa-cloud-arrow-up"></i> <span>ফায়ারবেসে আপলোড ও প্রকাশ করুন</span>
+              <button type="button" id="btn-submit-material" onclick="window.handleMaterialSubmitDirect(event)" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-upload"></i> ফাইল আপলোড ও প্রকাশ করুন
               </button>
             </div>
           </form>
@@ -4225,7 +4220,7 @@ ${currentBrand.name}
 
         <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
           <h5 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-            <i class="fa-solid fa-list-check text-emerald-600"></i> সংরক্ষিত সকল প্রশ্ন ও নোটস তালিকা
+            <i class="fa-solid fa-list-check text-emerald-600"></i> আপলোডকৃত সকল প্রশ্ন ও নোটস তালিকা
           </h5>
           <div class="overflow-x-auto rounded-2xl border border-slate-200">
             <table class="w-full text-left text-xs">
@@ -4245,65 +4240,54 @@ ${currentBrand.name}
       `;
       adminMainContainer.appendChild(adminPane);
 
+      // File input listener bind
       const fileIn = document.getElementById('mat-file-input');
       if (fileIn) {
         fileIn.addEventListener('change', function(e) {
-          currentUploadRawFile = e.target.files[0] || null;
+          const file = e.target.files[0];
+          if (!file) return;
+
+          if (file.size > 8 * 1024 * 1024) {
+            alert("ফাইল সাইজ সর্বোচ্চ ৮ মেগাবাইট (8MB) হতে পারবে!");
+            e.target.value = '';
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onload = function(evt) {
+            tempSelectedMaterialFile = {
+              data: evt.target.result,
+              name: file.name,
+              type: file.type || 'application/pdf'
+            };
+          };
+          reader.readAsDataURL(file);
         });
       }
     }
   }
 
-  // ফায়ারবেস থেকে ডেটা ফেচ
-  window.loadMaterialsFromFirebase = function() {
-    if (isFirebaseReady) {
-      fbDb.collection("materials").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
-        addonMaterialsList = [];
-        snapshot.forEach((doc) => {
-          addonMaterialsList.push({ id: doc.id, ...doc.data() });
-        });
-        window.renderAdminMaterials();
-        if (typeof loggedInStudent !== 'undefined' && loggedInStudent) {
-          window.renderStudentMaterials();
-        }
-      }, (error) => {
-        console.error("Firestore Read Error:", error);
-        loadLocalFallback();
-      });
-    } else {
-      loadLocalFallback();
-    }
-  };
-
-  function loadLocalFallback() {
-    const local = localStorage.getItem(DB_MATERIALS_ADDON);
-    addonMaterialsList = local ? JSON.parse(local) : [];
-    window.renderAdminMaterials();
-    if (typeof loggedInStudent !== 'undefined' && loggedInStudent) {
-      window.renderStudentMaterials();
-    }
-  }
-
-  // আপলোড হ্যান্ডলার (ফায়ারবেস ও ফলব্যাক সাপোর্ট)
-  window.handleMaterialFirebaseSubmit = async function(e) {
+  // Direct Button Click Handler (Forms bypass problem fixed)
+  window.handleMaterialSubmitDirect = function(e) {
     if (e && e.preventDefault) e.preventDefault();
 
     const courseSelect = document.getElementById('mat-course-id');
     const titleInput = document.getElementById('mat-title');
     const typeSelect = document.getElementById('mat-type');
     const accessCheck = document.getElementById('mat-allow-access');
-    const submitBtn = document.getElementById('btn-submit-material');
 
     if (!courseSelect || !courseSelect.value) {
       alert("অনুগ্রহ করে একটি কোর্স/ব্যাচ নির্বাচন করুন!");
       return;
     }
+
     if (!titleInput || !titleInput.value.trim()) {
       alert("অনুগ্রহ করে শিরোনাম বা বিষয়ের নাম লিখুন!");
       titleInput.focus();
       return;
     }
-    if (!currentUploadRawFile) {
+
+    if (!tempSelectedMaterialFile.data) {
       alert("অনুগ্রহ করে একটি পিডিএফ বা ইমেজ ফাইল নির্বাচন করুন!");
       return;
     }
@@ -4314,78 +4298,38 @@ ${currentBrand.name}
     const allowAccess = accessCheck ? accessCheck.checked : true;
     const date = new Date().toLocaleDateString('bn-BD');
 
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> আপলোড হচ্ছে...`;
+    const newMaterial = {
+      id: 'mat_' + Date.now(),
+      courseId,
+      type,
+      title,
+      fileName: tempSelectedMaterialFile.name || 'document.pdf',
+      fileType: tempSelectedMaterialFile.type || 'application/pdf',
+      fileData: tempSelectedMaterialFile.data,
+      date,
+      allowAccess
+    };
+
+    addonMaterialsList.unshift(newMaterial);
 
     try {
-      let downloadURL = "";
+      localStorage.setItem(DB_MATERIALS_ADDON, JSON.stringify(addonMaterialsList));
+    } catch (err) {
+      console.warn("Storage quota exceeded, keeping in active memory.");
+    }
 
-      if (isFirebaseReady) {
-        try {
-          const storageRef = fbStorage.ref(`study_materials/${Date.now()}_${currentUploadRawFile.name}`);
-          const snapshot = await storageRef.put(currentUploadRawFile);
-          downloadURL = await snapshot.ref.getDownloadURL();
-        } catch (stError) {
-          console.warn("Storage upload failed, fallback to base64 inline encoding:", stError);
-          downloadURL = await readFileAsBase64(currentUploadRawFile);
-        }
+    alert("প্রশ্ন/নোট ফাইল সফলভাবে আপলোড ও প্রকাশ করা হয়েছে!");
 
-        await fbDb.collection("materials").add({
-          courseId,
-          type,
-          title,
-          fileName: currentUploadRawFile.name,
-          fileType: currentUploadRawFile.type || 'application/pdf',
-          fileData: downloadURL,
-          date,
-          allowAccess,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } else {
-        downloadURL = await readFileAsBase64(currentUploadRawFile);
-        const newMat = {
-          id: 'mat_' + Date.now(),
-          courseId,
-          type,
-          title,
-          fileName: currentUploadRawFile.name,
-          fileType: currentUploadRawFile.type || 'application/pdf',
-          fileData: downloadURL,
-          date,
-          allowAccess
-        };
-        addonMaterialsList.unshift(newMat);
-        localStorage.setItem(DB_MATERIALS_ADDON, JSON.stringify(addonMaterialsList));
-      }
+    const form = document.getElementById('material-upload-form');
+    if (form) form.reset();
+    tempSelectedMaterialFile = { data: '', name: '', type: '' };
 
-      alert("প্রশ্ন/নোট সফলভাবে আপলোড ও প্রকাশ করা হয়েছে!");
-      const form = document.getElementById('material-upload-form');
-      if (form) form.reset();
-      currentUploadRawFile = null;
-
-      window.renderAdminMaterials();
-      if (typeof loggedInStudent !== 'undefined' && loggedInStudent) {
-        window.renderStudentMaterials();
-      }
-    } catch (error) {
-      console.error("Upload Error:", error);
-      alert("আপলোড করতে সমস্যা হয়েছে: " + error.message);
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>ফায়ারবেসে আপলোড ও প্রকাশ করুন</span>`;
+    window.renderAdminMaterials();
+    if (typeof loggedInStudent !== 'undefined' && loggedInStudent) {
+      window.renderStudentMaterials();
     }
   };
 
-  function readFileAsBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = (e) => reject(e);
-      reader.readAsDataURL(file);
-    });
-  }
-
-  // অ্যাডমিন টেবিল রেন্ডার
   window.renderAdminMaterials = function() {
     const select = document.getElementById('mat-course-id');
     if (select && typeof coursesList !== 'undefined') {
@@ -4405,7 +4349,7 @@ ${currentBrand.name}
     tbody.innerHTML = '';
 
     if (addonMaterialsList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">কোনো ফাইল আপলোড করা নেই।</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">কোনো প্রশ্ন বা নোট আপলোড করা নেই।</td></tr>`;
       return;
     }
 
@@ -4424,12 +4368,12 @@ ${currentBrand.name}
           <span class="text-[10px] text-slate-400 truncate max-w-[150px] block">${mat.fileName}</span>
         </td>
         <td class="p-3">
-          <button type="button" onclick="window.toggleFirebaseMaterialPerm('${mat.id}')" class="text-[10px] font-bold px-3 py-1 rounded-full ${mat.allowAccess ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}">
+          <button type="button" onclick="window.toggleMaterialPerm('${mat.id}')" class="text-[10px] font-bold px-3 py-1 rounded-full ${mat.allowAccess ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}">
             অনুমতি: ${mat.allowAccess ? 'অনুমোদিত (Active)' : 'বন্ধ (Blocked)'}
           </button>
         </td>
         <td class="p-3 text-right">
-          <button type="button" onclick="window.deleteFirebaseMaterial('${mat.id}')" class="p-2 rounded-xl bg-slate-100 hover:bg-rose-600 hover:text-white transition">
+          <button type="button" onclick="window.deleteMaterial('${mat.id}')" class="p-2 rounded-xl bg-slate-100 hover:bg-rose-600 hover:text-white transition">
             <i class="fa-solid fa-trash"></i>
           </button>
         </td>
@@ -4438,37 +4382,35 @@ ${currentBrand.name}
     });
   };
 
-  // পারমিশন পরিবর্তন
-  window.toggleFirebaseMaterialPerm = async function(matId) {
+  window.toggleMaterialPerm = function(matId) {
     const mat = addonMaterialsList.find(x => x.id === matId);
     if (!mat) return;
-    const newStatus = !mat.allowAccess;
+    mat.allowAccess = !mat.allowAccess;
 
-    if (isFirebaseReady && !matId.startsWith('mat_')) {
-      await fbDb.collection("materials").doc(matId).update({ allowAccess: newStatus });
-    } else {
-      mat.allowAccess = newStatus;
+    try {
       localStorage.setItem(DB_MATERIALS_ADDON, JSON.stringify(addonMaterialsList));
-      window.renderAdminMaterials();
-      if (typeof loggedInStudent !== 'undefined' && loggedInStudent) window.renderStudentMaterials();
+    } catch (e) {}
+
+    window.renderAdminMaterials();
+    if (typeof loggedInStudent !== 'undefined' && loggedInStudent) {
+      window.renderStudentMaterials();
     }
   };
 
-  // উপাদান মুছে ফেলা
-  window.deleteFirebaseMaterial = async function(matId) {
+  window.deleteMaterial = function(matId) {
     if (confirm("আপনি কি নিশ্চিতভাবে এই প্রশ্ন/নোটটি মুছে ফেলতে চান?")) {
-      if (isFirebaseReady && !matId.startsWith('mat_')) {
-        await fbDb.collection("materials").doc(matId).delete();
-      } else {
-        addonMaterialsList = addonMaterialsList.filter(x => x.id !== matId);
+      addonMaterialsList = addonMaterialsList.filter(x => x.id !== matId);
+      try {
         localStorage.setItem(DB_MATERIALS_ADDON, JSON.stringify(addonMaterialsList));
-        window.renderAdminMaterials();
-        if (typeof loggedInStudent !== 'undefined' && loggedInStudent) window.renderStudentMaterials();
+      } catch (e) {}
+
+      window.renderAdminMaterials();
+      if (typeof loggedInStudent !== 'undefined' && loggedInStudent) {
+        window.renderStudentMaterials();
       }
     }
   };
 
-  // স্টুডেন্ট পোর্টাল ভিউ রেন্ডার
   window.renderStudentMaterials = function() {
     if (typeof loggedInStudent === 'undefined' || !loggedInStudent) return;
     const container = document.getElementById('student-materials-grid');
@@ -4494,7 +4436,7 @@ ${currentBrand.name}
       } else {
         actionButtons = `
           <div class="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
-            <button type="button" onclick="window.viewAndDownloadFirebaseMaterial('${m.id}')" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20">
+            <button type="button" onclick="window.viewAndDownloadMaterial('${m.id}')" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20">
               <i class="fa-solid fa-file-arrow-down text-sm"></i> <span>পিডিএফ দেখুন ও ডাউনলোড</span>
             </button>
           </div>
@@ -4521,12 +4463,11 @@ ${currentBrand.name}
     });
   };
 
-  // পিডিএফ ও ডকুমেন্ট প্রিভিউ উইন্ডো
-  window.viewAndDownloadFirebaseMaterial = function(matId) {
+  window.viewAndDownloadMaterial = function(matId) {
     const m = addonMaterialsList.find(x => x.id === matId);
     if (!m) return;
 
-    const fileSrc = m.fileData;
+    const fileSrc = m.fileData || defaultSamplePDF;
     const isPdf = m.fileType === 'application/pdf' || (m.fileName && m.fileName.endsWith('.pdf'));
 
     const win = window.open('', '_blank');
@@ -4554,7 +4495,7 @@ ${currentBrand.name}
             <span class="font-bold text-sm truncate max-w-xs sm:max-w-md">${m.title}</span>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <a href="${fileSrc}" target="_blank" download="${m.fileName}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <a href="${fileSrc}" download="${m.fileName}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-download"></i> <span>সরাসরি ডাউনলোড</span>
             </a>
             <button type="button" onclick="window.printContent()" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
@@ -4581,26 +4522,257 @@ ${currentBrand.name}
     `);
   };
 
-  // মূল নেভিগেশন হুক
-  const originalSwitchTab = window.switchTab;
+  const prevSwitchTab = window.switchTab;
   window.switchTab = function(tabId) {
-    if (typeof originalSwitchTab === 'function') originalSwitchTab(tabId);
+    if (prevSwitchTab) prevSwitchTab(tabId);
     if (tabId === 'tab-materials') {
       window.renderAdminMaterials();
     }
   };
 
-  const originalOpenStudentPortalModal = window.openStudentPortalModal;
+  const prevOpenStudentPortalModal = window.openStudentPortalModal;
   window.openStudentPortalModal = function() {
-    if (typeof originalOpenStudentPortalModal === 'function') originalOpenStudentPortalModal();
+    if (prevOpenStudentPortalModal) prevOpenStudentPortalModal();
     window.renderStudentMaterials();
   };
 
-  // ডোম লোড হলে চালু
   document.addEventListener('DOMContentLoaded', () => {
     initAddonUI();
-    window.loadMaterialsFromFirebase();
   });
+</script>
+<!-- ========================================================================= -->
+<!-- 🔥 FIREBASE REALTIME DATABASE LIVE SYNC ENGINE (Plug & Play Add-on)     -->
+<!-- ========================================================================= -->
+
+<!-- Firebase SDKs (Compat version for single-file seamless integration) -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+<script>
+  // ১. আপনার ফায়ারবেস কনফিগারেশন এখানে বসান
+  const firebaseConfig = {
+    apiKey: "AIzaSyAzYbhmcYOwIOKudXTdoDn10a_sIfXepjQ",
+    authDomain: "coaching-center-demo.firebaseapp.com",
+    databaseURL: "https://coaching-center-demo-default-rtdb.firebaseio.com",
+    projectId: "coaching-center-demo",
+    storageBucket: "coaching-center-demo.firebasestorage.app",
+    messagingSenderId: "1032292921153",
+    appId: "1:1032292921153:web:68e2f7c86c413ea14cfbc0",
+    measurementId: "G-FYYL0R539C"
+  };
+
+  // Firebase Initialize
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  const liveDb = firebase.database();
+
+  // লাইভ সিঙ্ক স্ট্যাটাস ইন্ডিকেটর (স্ক্রিনের নিচে ডান কোণে দেখাবে)
+  const syncBadge = document.createElement('div');
+  syncBadge.id = 'firebase-sync-status';
+  syncBadge.className = 'fixed bottom-3 right-3 z-50 bg-slate-900/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full border border-slate-700 shadow-lg flex items-center gap-2 backdrop-blur-sm pointer-events-none transition-all';
+  syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> <span>ডাটাবেজ কানেক্ট হচ্ছে...</span>`;
+  document.body.appendChild(syncBadge);
+
+  function updateSyncStatus(connected) {
+    if (connected) {
+      syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span> <span class="text-emerald-300">লাইভ সিঙ্ক চালু</span>`;
+    } else {
+      syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span> <span class="text-rose-300">কানেকশন বিচ্ছিন্ন</span>`;
+    }
+  }
+
+  // কানেকশন মনিটর
+  liveDb.ref('.info/connected').on('value', snap => {
+    updateSyncStatus(snap.val() === true);
+  });
+
+  // ২. লোকাল setData মেথডকে Firebase Realtime Database-এর সাথে প্রতিস্থাপন
+  const DB_FIREBASE_MAP = {
+    [DB.BRAND]: 'brand',
+    [DB.COURSES]: 'courses',
+    [DB.ROUTINES]: 'routines',
+    [DB.STUDENTS]: 'students',
+    [DB.RESULTS]: 'results',
+    [DB.NOTICES]: 'notices',
+    [DB.TEACHERS]: 'teachers',
+    [DB.USERS]: 'users',
+    ['coaching_materials_v5']: 'materials'
+  };
+
+  window.setData = function(key, data) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch(e) {}
+
+    const node = DB_FIREBASE_MAP[key];
+    if (node) {
+      liveDb.ref('coaching_data/' + node).set(data).catch(err => {
+        console.error("Firebase sync error on " + node + ":", err);
+      });
+    }
+  };
+
+  // ৩. রিয়েলটাইম লাইভ ডাটা লিসেনার ও অটো ইউআই রেন্ডারার
+  function setupRealtimeListeners() {
+    // Brand
+    liveDb.ref('coaching_data/brand').on('value', snap => {
+      if (snap.exists()) {
+        currentBrand = snap.val();
+        localStorage.setItem(DB.BRAND, JSON.stringify(currentBrand));
+        if (window.renderBrandUI) window.renderBrandUI();
+      } else {
+        liveDb.ref('coaching_data/brand').set(currentBrand);
+      }
+    });
+
+    // Courses
+    liveDb.ref('coaching_data/courses').on('value', snap => {
+      if (snap.exists()) {
+        coursesList = snap.val() || [];
+        localStorage.setItem(DB.COURSES, JSON.stringify(coursesList));
+        if (window.renderCourses) window.renderCourses();
+        if (window.renderAdminCourses) window.renderAdminCourses();
+        if (window.loadBulkResultCourses) window.loadBulkResultCourses();
+        if (window.renderAdminMaterials) window.renderAdminMaterials();
+        if (window.loggedInStudent && window.renderStudentPortalCourses) {
+          window.renderStudentPortalCourses();
+        }
+      } else {
+        liveDb.ref('coaching_data/courses').set(coursesList);
+      }
+    });
+
+    // Routines
+    liveDb.ref('coaching_data/routines').on('value', snap => {
+      if (snap.exists()) {
+        routinesList = snap.val() || [];
+        localStorage.setItem(DB.ROUTINES, JSON.stringify(routinesList));
+        if (window.renderRoutines) window.renderRoutines();
+        if (window.renderAdminRoutines) window.renderAdminRoutines();
+        if (window.loggedInStudent && window.renderStudentPortalRoutine) {
+          window.renderStudentPortalRoutine();
+        }
+      } else {
+        liveDb.ref('coaching_data/routines').set(routinesList);
+      }
+    });
+
+    // Students
+    liveDb.ref('coaching_data/students').on('value', snap => {
+      if (snap.exists()) {
+        studentsList = snap.val() || [];
+        localStorage.setItem(DB.STUDENTS, JSON.stringify(studentsList));
+        if (window.renderAdminStudents) window.renderAdminStudents();
+        if (window.renderAdminUsers) window.renderAdminUsers();
+
+        // লগইনরত শিক্ষার্থীর ডাটা লাইভ আপডেট
+        if (window.loggedInStudent) {
+          const fresh = studentsList.find(s => s.id === window.loggedInStudent.id);
+          if (fresh) {
+            window.loggedInStudent = fresh;
+            if (window.renderStudentPortalCourses) window.renderStudentPortalCourses();
+            if (window.renderStudentPortalRoutine) window.renderStudentPortalRoutine();
+            if (window.renderStudentMaterials) window.renderStudentMaterials();
+          }
+        }
+      } else {
+        liveDb.ref('coaching_data/students').set(studentsList);
+      }
+    });
+
+    // Results
+    liveDb.ref('coaching_data/results').on('value', snap => {
+      if (snap.exists()) {
+        resultsList = snap.val() || [];
+        localStorage.setItem(DB.RESULTS, JSON.stringify(resultsList));
+      } else {
+        liveDb.ref('coaching_data/results').set(resultsList);
+      }
+    });
+
+    // Notices
+    liveDb.ref('coaching_data/notices').on('value', snap => {
+      if (snap.exists()) {
+        noticesList = snap.val() || [];
+        localStorage.setItem(DB.NOTICES, JSON.stringify(noticesList));
+        if (window.renderNotices) window.renderNotices();
+        if (window.renderAdminNotices) window.renderAdminNotices();
+        if (window.loggedInStudent && window.renderStudentPortalNotices) {
+          window.renderStudentPortalNotices();
+        }
+      } else {
+        liveDb.ref('coaching_data/notices').set(noticesList);
+      }
+    });
+
+    // Teachers
+    liveDb.ref('coaching_data/teachers').on('value', snap => {
+      if (snap.exists()) {
+        teachersList = snap.val() || [];
+        localStorage.setItem(DB.TEACHERS, JSON.stringify(teachersList));
+        if (window.renderTeachers) window.renderTeachers();
+        if (window.renderAdminTeachers) window.renderAdminTeachers();
+      } else {
+        liveDb.ref('coaching_data/teachers').set(teachersList);
+      }
+    });
+
+    // Users / Admins
+    liveDb.ref('coaching_data/users').on('value', snap => {
+      if (snap.exists()) {
+        usersList = snap.val() || [];
+        localStorage.setItem(DB.USERS, JSON.stringify(usersList));
+        if (window.renderAdminUsers) window.renderAdminUsers();
+      } else {
+        liveDb.ref('coaching_data/users').set(usersList);
+      }
+    });
+
+    // Materials / PDFs Addon
+    liveDb.ref('coaching_data/materials').on('value', snap => {
+      if (snap.exists()) {
+        addonMaterialsList = snap.val() || [];
+        localStorage.setItem('coaching_materials_v5', JSON.stringify(addonMaterialsList));
+        if (window.renderAdminMaterials) window.renderAdminMaterials();
+        if (window.loggedInStudent && window.renderStudentMaterials) {
+          window.renderStudentMaterials();
+        }
+      } else {
+        liveDb.ref('coaching_data/materials').set(addonMaterialsList);
+      }
+    });
+  }
+
+  // মেটিরিয়ালস সেভ ফাংশনকে ওভাররাইড করে ফায়ারবেস কানেক্ট
+  const prevHandleMaterialSubmitDirect = window.handleMaterialSubmitDirect;
+  window.handleMaterialSubmitDirect = function(e) {
+    if (prevHandleMaterialSubmitDirect) {
+      prevHandleMaterialSubmitDirect(e);
+      liveDb.ref('coaching_data/materials').set(addonMaterialsList).catch(err => {
+        console.error("Materials sync error:", err);
+      });
+    }
+  };
+
+  const prevToggleMaterialPerm = window.toggleMaterialPerm;
+  window.toggleMaterialPerm = function(matId) {
+    if (prevToggleMaterialPerm) {
+      prevToggleMaterialPerm(matId);
+      liveDb.ref('coaching_data/materials').set(addonMaterialsList);
+    }
+  };
+
+  const prevDeleteMaterial = window.deleteMaterial;
+  window.deleteMaterial = function(matId) {
+    if (prevDeleteMaterial) {
+      prevDeleteMaterial(matId);
+      liveDb.ref('coaching_data/materials').set(addonMaterialsList);
+    }
+  };
+
+  // ইনিশিয়ালাইজেশন
+  setupRealtimeListeners();
 </script>
 </body>
 </html>
